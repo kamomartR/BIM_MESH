@@ -1,0 +1,44 @@
+{
+  "entities": {
+    "MatrixState": {
+      "title": "MatrixState",
+      "description": "Stores the current state of the 33-dimension BIM Maturity Matrix for Mesh Estudio.",
+      "type": "object",
+      "properties": {
+        "selections": {
+          "type": "object",
+          "description": "Map of the 33 BIM maturity dimension IDs to their selected level index (0 to 4)."
+        },
+        "scorePercentage": {
+          "type": "integer",
+          "description": "Computed overall BIM maturity percentage from 0 to 100."
+        },
+        "maturityCategory": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1,
+          "description": "Classification label of the achieved BIM maturity level."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the last save operation."
+        }
+      },
+      "required": [
+        "selections",
+        "scorePercentage",
+        "maturityCategory",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/matrices/{matrixId}": {
+      "schema": {
+        "$ref": "#/entities/MatrixState"
+      },
+      "description": "Singleton document (mesh_estudio) storing the BIM Maturity Matrix progress."
+    }
+  }
+}

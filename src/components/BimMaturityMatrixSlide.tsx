@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ClipboardList,
   Award,
@@ -8,30 +8,13 @@ import {
   Cpu,
   Layers,
   FileText,
-  CloudUpload,
-  FolderOpen,
-  RefreshCw,
-  Trash2,
-  ExternalLink,
-  AlertTriangle,
-  LogOut,
+  Save,
   CheckCircle2,
 } from 'lucide-react';
-import type { User } from 'firebase/auth';
 import {
-  initAuth,
-  googleSignIn,
-  logout,
-  listDriveAssessments,
-  createDriveAssessment,
-  updateDriveAssessment,
-  loadDriveAssessment,
-  deleteDriveAssessment,
-  TARGET_DRIVE_FOLDER_ID,
-  TARGET_DRIVE_FOLDER_URL,
-  type DriveAssessmentFile,
-  type SavedBimAssessmentPayload,
-} from '../lib/googleDrive';
+  subscribeToMatrixState,
+  saveMatrixStateToCloud,
+} from '../lib/firebase';
 
 interface Dimension {
   id: string;
@@ -565,13 +548,19 @@ const DEFAULT_SELECTIONS: Record<string, number> = {
 
 const LOCAL_DRAFT_KEY = 'mesh_bim_maturity_draft_v1';
 
-export const BimMaturityMatrixSlide = () => {
+interface BimMaturityMatrixSlideProps {
+  initialCategory?: 'tecnologia' | 'procesos' | 'politicas' | 'capacidad' | 'escala';
+}
+
+export const BimMaturityMatrixSlide: React.FC<BimMaturityMatrixSlideProps> = ({
+  initialCategory = 'tecnologia',
+}) => {
   const [selections, setSelections] = useState<Record<string, number>>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_DRAFT_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed?.selections) return parsed.selections;
+        if (parsed?.selections) return { ...DEFAULT_SELECTIONS, ...parsed.selections };
       }
     } catch {
       // Ignore parse error
@@ -579,123 +568,15 @@ export const BimMaturityMatrixSlide = () => {
     return DEFAULT_SELECTIONS;
   });
 
-  const [organization, setOrganization] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem(LOCAL_DRAFT_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed?.organization) return parsed.organization;
-      }
-    } catch {
-      // Ignore parse error
-    }
-    return 'Mesh Estudio';
-  });
-
-  const [assessmentTitle, setAssessmentTitle] = useState<string>(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    return `Avance_Matriz_BIM_${today}`;
-  });
-
-  const [activeCategory, setActiveCategory] = useState<'tecnologia' | 'procesos' | 'politicas' | 'capacidad' | 'escala'>('tecnologia');
-
-  // Google Drive Auth & State
-  const [needsAuth, setNeedsAuth] = useState<boolean>(true);
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
-  const [driveFiles, setDriveFiles] = useState<DriveAssessmentFile[]>([]);
-  const [activeDriveFile, setActiveDriveFile] = useState<DriveAssessmentFile | null>(null);
-  const [isLoadingFiles, setIsLoadingFiles] = useState<boolean>(false);
-  const [isSavingDrive, setIsSavingDrive] = useState<boolean>(false);
-  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // Mandatory Confirmation Modal State for Mutating/Destructive Drive Operations
-  const [confirmModal, setConfirmModal] = useState<{
-    action: 'update' | 'delete';
-    file: DriveAssessmentFile;
-  } | null>(null);
-
-  // Save draft locally (only matrix selections & org name, never tokens)
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        LOCAL_DRAFT_KEY,
-        JSON.stringify({ selections, organization, updatedAt: new Date().toISOString() })
-      );
-    } catch {
-      // Ignore storage error
-    }
-  }, [selections, organization]);
-
-  const fetchDriveFiles = async () => {
-    setIsLoadingFiles(true);
-    try {
-      const files = await listDriveAssessments(TARGET_DRIVE_FOLDER_ID);
-      setDriveFiles(files);
-    } catch (err: any) {
-      if (err?.message === 'AUTH_REQUIRED') {
-        setNeedsAuth(true);
-      } else {
-        setStatusMessage({
-          type: 'error',
-          text: err?.message || 'No se pudieron consultar los archivos en la carpeta de Google Drive.',
-        });
-      }
-    } finally {
-      setIsLoadingFiles(false);
-    }
-  };
+  const [activeCategory, setActiveCategory] = useState<'tecnologia' | 'procesos' | 'politicas' | 'capacidad' | 'escala'>(initialCategory);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const isLocalChangeRef = useRef<boolean>(false);
 
   useEffect(() => {
-    const unsubscribe = initAuth(
-      (authenticatedUser) => {
-        setUser(authenticatedUser);
-        setNeedsAuth(false);
-        fetchDriveFiles();
-      },
-      () => {
-        setUser(null);
-        setNeedsAuth(true);
-      }
-    );
-    return () => unsubscribe();
-  }, []);
-
-  const handleLogin = async () => {
-    setIsLoggingIn(true);
-    setStatusMessage(null);
-    try {
-      const result = await googleSignIn();
-      if (result) {
-        setUser(result.user);
-        setNeedsAuth(false);
-        await fetchDriveFiles();
-      }
-    } catch (err: any) {
-      setStatusMessage({
-        type: 'error',
-        text: err?.message || 'Error al iniciar sesión con Google.',
-      });
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    await logout();
-    setUser(null);
-    setNeedsAuth(true);
-    setDriveFiles([]);
-    setActiveDriveFile(null);
-    setStatusMessage(null);
-  };
-
-  const handleCellClick = (dimensionId: string, levelIndex: number) => {
-    setSelections(prev => ({
-      ...prev,
-      [dimensionId]: levelIndex
-    }));
-  };
+    setActiveCategory(initialCategory);
+  }, [initialCategory]);
 
   // Compute stats
   const totalLevels = (Object.values(selections) as number[]).reduce((acc: number, curr: number) => acc + (curr || 0), 0);
@@ -715,6 +596,87 @@ export const BimMaturityMatrixSlide = () => {
     maturityCategory = 'Nivel 1: Corporación Modelado en Silo';
     categoryColor = 'text-orange-800 border-orange-300 bg-orange-50';
   }
+
+  // Subscribe to cloud state automatically on mount
+  useEffect(() => {
+    const unsubscribe = subscribeToMatrixState((cloudData) => {
+      if (cloudData?.selections && !isLocalChangeRef.current) {
+        setSelections({ ...DEFAULT_SELECTIONS, ...cloudData.selections });
+        if (cloudData.updatedAt && typeof cloudData.updatedAt.toDate === 'function') {
+          setLastSavedAt(
+            cloudData.updatedAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          );
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Save draft locally whenever selections change
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        LOCAL_DRAFT_KEY,
+        JSON.stringify({ selections, updatedAt: new Date().toISOString() })
+      );
+    } catch {
+      // Ignore storage error
+    }
+  }, [selections]);
+
+  // Automatic background cloud save when user clicks cells
+  useEffect(() => {
+    if (!isLocalChangeRef.current) return;
+    const timer = setTimeout(async () => {
+      try {
+        await saveMatrixStateToCloud(selections, scorePercentage, maturityCategory);
+        setLastSavedAt(
+          new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        );
+      } catch {
+        // Fallback already saved in localStorage
+      } finally {
+        isLocalChangeRef.current = false;
+      }
+    }, 900);
+    return () => clearTimeout(timer);
+  }, [selections, scorePercentage, maturityCategory]);
+
+  const handleCellClick = (dimensionId: string, levelIndex: number) => {
+    isLocalChangeRef.current = true;
+    setSaveSuccess(false);
+    setSelections(prev => ({
+      ...prev,
+      [dimensionId]: levelIndex
+    }));
+  };
+
+  const handleManualSave = async () => {
+    setIsSaving(true);
+    setSaveSuccess(false);
+    try {
+      localStorage.setItem(
+        LOCAL_DRAFT_KEY,
+        JSON.stringify({ selections, updatedAt: new Date().toISOString() })
+      );
+      await saveMatrixStateToCloud(selections, scorePercentage, maturityCategory);
+      isLocalChangeRef.current = false;
+      setLastSavedAt(
+        new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      );
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch {
+      // LocalStorage already saved
+      setLastSavedAt(
+        new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      );
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Generate a custom technical auditor prescription report
   const generateAuditorTips = () => {
@@ -757,190 +719,13 @@ export const BimMaturityMatrixSlide = () => {
 
   const auditorPrescriptions = generateAuditorTips();
 
-  const buildPayload = (): SavedBimAssessmentPayload => ({
-    title: assessmentTitle.trim() || 'Avance_Matriz_BIM',
-    organization: organization.trim() || 'Mesh Estudio',
-    updatedAt: new Date().toISOString(),
-    scorePercentage,
-    maturityCategory,
-    selections,
-    auditorPrescriptions,
-  });
-
-  const handleSaveNewToDrive = async () => {
-    setIsSavingDrive(true);
-    setStatusMessage(null);
-    try {
-      const created = await createDriveAssessment(buildPayload(), TARGET_DRIVE_FOLDER_ID);
-      setActiveDriveFile(created);
-      setStatusMessage({
-        type: 'success',
-        text: `Avance guardado en Google Drive como "${created.name}".`,
-      });
-      await fetchDriveFiles();
-    } catch (err: any) {
-      if (err?.message === 'AUTH_REQUIRED') {
-        setNeedsAuth(true);
-      } else {
-        setStatusMessage({
-          type: 'error',
-          text: err?.message || 'No se pudo guardar el avance en Google Drive.',
-        });
-      }
-    } finally {
-      setIsSavingDrive(false);
-    }
-  };
-
-  const handleConfirmUpdateDrive = async () => {
-    if (!confirmModal || confirmModal.action !== 'update') return;
-    const targetFile = confirmModal.file;
-    setConfirmModal(null);
-    setIsSavingDrive(true);
-    setStatusMessage(null);
-    try {
-      const updated = await updateDriveAssessment(targetFile.id, buildPayload());
-      setActiveDriveFile(updated);
-      setStatusMessage({
-        type: 'success',
-        text: `Archivo "${updated.name}" actualizado correctamente en Google Drive.`,
-      });
-      await fetchDriveFiles();
-    } catch (err: any) {
-      if (err?.message === 'AUTH_REQUIRED') {
-        setNeedsAuth(true);
-      } else {
-        setStatusMessage({
-          type: 'error',
-          text: err?.message || 'No se pudo actualizar el archivo en Google Drive.',
-        });
-      }
-    } finally {
-      setIsSavingDrive(false);
-    }
-  };
-
-  const handleConfirmDeleteDrive = async () => {
-    if (!confirmModal || confirmModal.action !== 'delete') return;
-    const targetFile = confirmModal.file;
-    setConfirmModal(null);
-    setIsSavingDrive(true);
-    setStatusMessage(null);
-    try {
-      await deleteDriveAssessment(targetFile.id);
-      if (activeDriveFile?.id === targetFile.id) {
-        setActiveDriveFile(null);
-      }
-      setStatusMessage({
-        type: 'success',
-        text: `Archivo "${targetFile.name}" eliminado de Google Drive.`,
-      });
-      await fetchDriveFiles();
-    } catch (err: any) {
-      if (err?.message === 'AUTH_REQUIRED') {
-        setNeedsAuth(true);
-      } else {
-        setStatusMessage({
-          type: 'error',
-          text: err?.message || 'No se pudo eliminar el archivo de Google Drive.',
-        });
-      }
-    } finally {
-      setIsSavingDrive(false);
-    }
-  };
-
-  const handleLoadFromDrive = async (file: DriveAssessmentFile) => {
-    setIsLoadingFiles(true);
-    setStatusMessage(null);
-    try {
-      const data = await loadDriveAssessment(file.id);
-      if (data?.selections) {
-        setSelections(data.selections);
-      }
-      if (data?.organization) {
-        setOrganization(data.organization);
-      }
-      if (data?.title) {
-        setAssessmentTitle(data.title.replace(/\.json$/i, ''));
-      } else {
-        setAssessmentTitle(file.name.replace(/\.json$/i, ''));
-      }
-      setActiveDriveFile(file);
-      setStatusMessage({
-        type: 'success',
-        text: `Avance "${file.name}" cargado en la matriz.`,
-      });
-    } catch (err: any) {
-      if (err?.message === 'AUTH_REQUIRED') {
-        setNeedsAuth(true);
-      } else {
-        setStatusMessage({
-          type: 'error',
-          text: err?.message || 'No se pudo cargar el archivo desde Google Drive.',
-        });
-      }
-    } finally {
-      setIsLoadingFiles(false);
-    }
-  };
-
   const filteredDimensions = DIMENSIONS.filter(
     dim => dim.category === activeCategory
   );
 
   return (
     <div className="space-y-6 w-full max-w-6xl mx-auto text-slate-900 font-sans pb-8" id="maturity-slide">
-      {/* Confirmation Modal for Updating or Deleting Drive Files */}
-      {confirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 shrink-0">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-sm font-bold text-slate-900">
-                  {confirmModal.action === 'update'
-                    ? 'Confirmar actualización en Google Drive'
-                    : 'Confirmar eliminación en Google Drive'}
-                </h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  {confirmModal.action === 'update'
-                    ? `¿Estás seguro de que deseas sobrescribir el contenido del archivo "${confirmModal.file.name}" en Google Drive con los niveles actuales (${scorePercentage}%)?`
-                    : `¿Estás seguro de que deseas eliminar permanentemente el archivo "${confirmModal.file.name}" de tu carpeta de Google Drive?`}
-                </p>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => setConfirmModal(null)}
-                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={
-                  confirmModal.action === 'update'
-                    ? handleConfirmUpdateDrive
-                    : handleConfirmDeleteDrive
-                }
-                className={`px-4 py-2 text-xs font-bold text-white rounded-lg transition-colors cursor-pointer ${
-                  confirmModal.action === 'update'
-                    ? 'bg-emerald-600 hover:bg-emerald-700'
-                    : 'bg-red-600 hover:bg-red-700'
-                }`}
-              >
-                {confirmModal.action === 'update' ? 'Confirmar actualización' : 'Eliminar archivo'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Header */}
+      {/* Header with Save Button */}
       <div className="border-b border-slate-200 pb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
@@ -948,213 +733,29 @@ export const BimMaturityMatrixSlide = () => {
             <span>Medición del Proceso BIM a Nivel Empresa (Matriz de Madurez)</span>
           </h1>
         </div>
-        <a
-          href={TARGET_DRIVE_FOLDER_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200 px-3.5 py-2 rounded-xl transition-colors whitespace-nowrap shrink-0"
-        >
-          <FolderOpen className="w-4 h-4" />
-          <span>Abrir Carpeta en Google Drive</span>
-          <ExternalLink className="w-3.5 h-3.5" />
-        </a>
-      </div>
 
-      {/* Google Drive Persistence Panel */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2.5">
-            <CloudUpload className="w-5 h-5 text-emerald-600 shrink-0" />
-            <div>
-              <h2 className="text-xs font-mono font-bold text-slate-900 uppercase tracking-wider">
-                Respaldo de Avances en Google Drive
-              </h2>
-              <p className="text-xs text-slate-500">
-                Guarda y recupera las evaluaciones de madurez directamente en la carpeta compartida de Google Drive.
-              </p>
-            </div>
-          </div>
+        <div className="flex items-center gap-3 shrink-0">
+          {saveSuccess ? (
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>Cambios guardados</span>
+            </span>
+          ) : lastSavedAt ? (
+            <span className="text-xs text-slate-500 font-mono tabular-nums">
+              Guardado · {lastSavedAt}
+            </span>
+          ) : null}
 
-          {needsAuth ? (
-            <button
-              type="button"
-              onClick={handleLogin}
-              disabled={isLoggingIn}
-              className="inline-flex items-center gap-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 px-4 py-2 rounded-lg text-xs font-semibold shadow-2xs transition-all cursor-pointer disabled:opacity-60"
-            >
-              <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-4 h-4 block shrink-0">
-                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
-                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
-                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
-                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
-                <path fill="none" d="M0 0h48v48H0z"></path>
-              </svg>
-              <span>{isLoggingIn ? 'Conectando...' : 'Sign in with Google'}</span>
-            </button>
-          ) : (
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-slate-600 font-medium">
-                Conectado: <strong className="text-slate-900">{user?.email}</strong>
-              </span>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Salir</span>
-              </button>
-            </div>
-          )}
-        </div>
-
-        {statusMessage && (
-          <div
-            className={`p-3 rounded-xl border text-xs flex items-center justify-between gap-2 ${
-              statusMessage.type === 'success'
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                : 'bg-red-50 border-red-200 text-red-900'
-            }`}
+          <button
+            type="button"
+            onClick={handleManualSave}
+            disabled={isSaving}
+            className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-60 whitespace-nowrap"
           >
-            <div className="flex items-center gap-2">
-              {statusMessage.type === 'success' ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              ) : (
-                <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
-              )}
-              <span>{statusMessage.text}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setStatusMessage(null)}
-              className="text-xs font-bold opacity-70 hover:opacity-100 cursor-pointer"
-            >
-              Cerrar
-            </button>
-          </div>
-        )}
-
-        {!needsAuth && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-            {/* Save Form */}
-            <div className="lg:col-span-6 space-y-3 bg-slate-50 border border-slate-200/80 rounded-xl p-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Empresa / Área Evaluada
-                  </label>
-                  <input
-                    type="text"
-                    value={organization}
-                    onChange={(e) => setOrganization(e.target.value)}
-                    placeholder="Ej. Mesh Estudio"
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-hidden focus:border-emerald-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Nombre del Archivo de Avance
-                  </label>
-                  <input
-                    type="text"
-                    value={assessmentTitle}
-                    onChange={(e) => setAssessmentTitle(e.target.value)}
-                    placeholder="Ej. Avance_Matriz_BIM"
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-hidden focus:border-emerald-600"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={handleSaveNewToDrive}
-                  disabled={isSavingDrive}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-2xs transition-colors cursor-pointer disabled:opacity-50 whitespace-nowrap"
-                >
-                  <CloudUpload className="w-4 h-4" />
-                  <span>{isSavingDrive ? 'Guardando...' : 'Guardar Nuevo en Drive'}</span>
-                </button>
-
-                {activeDriveFile && (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmModal({ action: 'update', file: activeDriveFile })}
-                    disabled={isSavingDrive}
-                    className="inline-flex items-center gap-2 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-2xs transition-colors cursor-pointer disabled:opacity-50 whitespace-nowrap"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Actualizar "{activeDriveFile.name}"</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Saved Files in Drive Folder */}
-            <div className="lg:col-span-6 bg-slate-50 border border-slate-200/80 rounded-xl p-4 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-700">
-                  Avances en la carpeta Drive ({driveFiles.length})
-                </span>
-                <button
-                  type="button"
-                  onClick={fetchDriveFiles}
-                  disabled={isLoadingFiles}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800 cursor-pointer disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingFiles ? 'animate-spin' : ''}`} />
-                  <span>Actualizar lista</span>
-                </button>
-              </div>
-
-              {driveFiles.length === 0 ? (
-                <p className="text-xs text-slate-500 py-2">
-                  {isLoadingFiles
-                    ? 'Consultando archivos en Google Drive...'
-                    : 'Aún no hay archivos JSON de avance guardados en esta carpeta.'}
-                </p>
-              ) : (
-                <div className="max-h-36 overflow-y-auto divide-y divide-slate-200/80 border border-slate-200 rounded-lg bg-white">
-                  {driveFiles.map((file) => {
-                    const isCurrent = activeDriveFile?.id === file.id;
-                    return (
-                      <div
-                        key={file.id}
-                        className={`px-3 py-2 flex items-center justify-between gap-2 text-xs ${
-                          isCurrent ? 'bg-emerald-50/70' : 'hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-slate-800 truncate">{file.name}</div>
-                          <div className="text-[10px] text-slate-500 font-mono tabular-nums">
-                            {new Date(file.modifiedTime).toLocaleString()}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => handleLoadFromDrive(file)}
-                            className="px-2.5 py-1 bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-700 font-semibold rounded-md transition-colors cursor-pointer"
-                          >
-                            Cargar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmModal({ action: 'delete', file })}
-                            title="Eliminar archivo de Google Drive"
-                            className="p-1 text-slate-400 hover:text-red-600 rounded-md transition-colors cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+            <Save className="w-4 h-4" />
+            <span>{isSaving ? 'Guardando...' : 'Guardar Cambios'}</span>
+          </button>
+        </div>
       </div>
 
       {/* A. Los Cinco Vectores de Madurez Corporativa */}

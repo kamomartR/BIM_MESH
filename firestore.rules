@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidLevel(val) {
+      return val is int && val >= 0 && val <= 4;
+    }
+
+    function isValidSelections(s) {
+      return s is map
+        && s.size() == 33
+        && isValidLevel(s.sw_seleccion)
+        && isValidLevel(s.sw_modelos)
+        && isValidLevel(s.sw_gestion)
+        && isValidLevel(s.sw_intercambios)
+        && isValidLevel(s.hw_equipamiento)
+        && isValidLevel(s.hw_actualizacion)
+        && isValidLevel(s.red_infraestructura)
+        && isValidLevel(s.red_canales)
+        && isValidLevel(s.red_conectividad)
+        && isValidLevel(s.rec_entorno)
+        && isValidLevel(s.rec_conocimiento)
+        && isValidLevel(s.act_roles)
+        && isValidLevel(s.act_colaboracion)
+        && isValidLevel(s.act_productividad)
+        && isValidLevel(s.mod_lod)
+        && isValidLevel(s.lid_vision)
+        && isValidLevel(s.lid_estrategia)
+        && isValidLevel(s.lid_innovacion)
+        && isValidLevel(s.ent_requisitos)
+        && isValidLevel(s.ent_programas)
+        && isValidLevel(s.est_politicas)
+        && isValidLevel(s.est_gestion)
+        && isValidLevel(s.est_calidad)
+        && isValidLevel(s.con_responsabilidades)
+        && isValidLevel(s['ind_desempeño'])
+        && isValidLevel(s.cap_modelado)
+        && isValidLevel(s.cap_col_metodo)
+        && isValidLevel(s.cap_col_confianza)
+        && isValidLevel(s.cap_red_modelos)
+        && isValidLevel(s.cap_red_coordinacion)
+        && isValidLevel(s.esc_organizaciones)
+        && isValidLevel(s.esc_equipos)
+        && isValidLevel(s.esc_mercados);
+    }
+
+    function isValidMatrixState(data) {
+      return data.keys().hasAll(['selections', 'scorePercentage', 'maturityCategory', 'updatedAt'])
+        && data.keys().hasOnly(['selections', 'scorePercentage', 'maturityCategory', 'updatedAt'])
+        && isValidSelections(data.selections)
+        && data.scorePercentage is int
+        && data.scorePercentage >= 0
+        && data.scorePercentage <= 100
+        && data.maturityCategory is string
+        && data.maturityCategory.size() >= 1
+        && data.maturityCategory.size() <= 120
+        && data.updatedAt == request.time;
+    }
+
+    match /matrices/{matrixId} {
+      allow get: if isValidId(matrixId) && matrixId == 'mesh_estudio';
+      allow list: if false;
+      allow create: if isValidId(matrixId) && matrixId == 'mesh_estudio' && isValidMatrixState(incoming());
+      allow update: if isValidId(matrixId)
+        && matrixId == 'mesh_estudio'
+        && isValidMatrixState(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['selections', 'scorePercentage', 'maturityCategory', 'updatedAt']);
+      allow delete: if false;
+    }
+  }
+}
