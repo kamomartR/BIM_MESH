@@ -1,0 +1,8 @@
+{
+  "name": "Implementación BIM Mesh Estudio",
+  "description": "Una presentación interactiva y estratégica sobre la metodología Building Information Modeling para perfiles ejecutivos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

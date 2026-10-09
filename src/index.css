@@ -1,0 +1,58 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-tedi-black: #0f172a;
+  --color-tedi-dark: #f8fafc;
+  --color-tedi-blue: #e2e8f0;
+  --color-tedi-purple: #7C3AED;
+  --color-tedi-cyan: #DE1B7D;
+  --color-tedi-orange: #FF5511;
+  --color-tedi-pink: #DE1B7D;
+
+  --color-artis-black: #f8fafc;
+  --color-artis-teal-dark: #f1f5f9;
+  --color-artis-teal: #DE1B7D;
+  --color-artis-orange: #FF5511;
+  --color-artis-orange-deep: #DE1B7D;
+}
+
+@layer base {
+  body {
+    @apply font-sans antialiased bg-slate-50 text-slate-900;
+  }
+}
+
+.immersive-grid {
+  background-image: radial-gradient(rgba(15, 23, 42, 0.06) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.glass-panel {
+  @apply bg-white/90 border border-slate-200 backdrop-blur-md shadow-xs;
+}
+
+/* Custom scrollbar styles for light mode */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.15);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 23, 42, 0.3);
+}
+
+/* Specific to Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(15, 23, 42, 0.15) transparent;
+}
