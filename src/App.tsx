@@ -4,12 +4,13 @@
  */
 
 import React, { useState } from 'react';
-import { ClipboardList, Compass } from 'lucide-react';
+import { ClipboardList, Compass, FileBarChart2 } from 'lucide-react';
 import { cn } from './lib/utils';
 import { BimMaturityMatrixSlide } from './components/BimMaturityMatrixSlide';
 import { PortadaSlide, MatrixCategory } from './components/PortadaSlide';
+import { InformeImplementacionSlide } from './components/InformeImplementacionSlide';
 
-type ActiveView = 'portada' | 'matriz';
+type ActiveView = 'portada' | 'matriz' | 'informe';
 
 const MeshLogo = ({ className, onClick }: { className?: string; onClick?: () => void }) => (
   <div
@@ -127,6 +128,26 @@ const Sidebar = ({
                 />
                 <span className="leading-snug">Matriz de Madurez</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => onSelectView('informe')}
+                title="Informe del Estado de Implementación BIM"
+                className={cn(
+                  "flex items-center gap-3 w-full px-3.5 py-2.5 rounded-xl transition-all text-xs font-bold tracking-wide cursor-pointer border text-left",
+                  activeView === 'informe'
+                    ? "bg-emerald-50 text-emerald-900 border-emerald-200 shadow-2xs"
+                    : "bg-transparent text-slate-600 border-transparent hover:bg-slate-100 hover:text-slate-900"
+                )}
+              >
+                <FileBarChart2
+                  className={cn(
+                    "w-4 h-4 shrink-0",
+                    activeView === 'informe' ? "text-emerald-600" : "text-slate-400"
+                  )}
+                />
+                <span className="leading-snug">Informe de Implementación</span>
+              </button>
             </div>
           </div>
         </nav>
@@ -183,25 +204,37 @@ export default function App() {
               type="button"
               onClick={() => setActiveView('portada')}
               className={cn(
-                "flex-1 py-2 px-3 text-xs font-bold rounded-md transition-colors cursor-pointer whitespace-nowrap truncate",
+                "flex-1 py-2 px-2.5 text-xs font-bold rounded-md transition-colors cursor-pointer whitespace-nowrap truncate",
                 activeView === 'portada'
                   ? "bg-white text-emerald-900 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
               )}
             >
-              Plan de Implementación BIM
+              Portada
             </button>
             <button
               type="button"
               onClick={() => setActiveView('matriz')}
               className={cn(
-                "flex-1 py-2 px-3 text-xs font-bold rounded-md transition-colors cursor-pointer whitespace-nowrap truncate",
+                "flex-1 py-2 px-2.5 text-xs font-bold rounded-md transition-colors cursor-pointer whitespace-nowrap truncate",
                 activeView === 'matriz'
                   ? "bg-white text-emerald-900 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
               )}
             >
-              Matriz de Madurez
+              Matriz
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveView('informe')}
+              className={cn(
+                "flex-1 py-2 px-2.5 text-xs font-bold rounded-md transition-colors cursor-pointer whitespace-nowrap truncate",
+                activeView === 'informe'
+                  ? "bg-white text-emerald-900 shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900"
+              )}
+            >
+              Informe PDF
             </button>
           </div>
         </div>
@@ -210,8 +243,10 @@ export default function App() {
         <div className="flex-1 relative z-10 min-h-0 overflow-y-auto pr-1">
           {activeView === 'portada' ? (
             <PortadaSlide onOpenMatrix={handleOpenMatrix} />
-          ) : (
+          ) : activeView === 'matriz' ? (
             <BimMaturityMatrixSlide initialCategory={selectedMatrixCategory} />
+          ) : (
+            <InformeImplementacionSlide onOpenMatrix={handleOpenMatrix} />
           )}
         </div>
       </main>

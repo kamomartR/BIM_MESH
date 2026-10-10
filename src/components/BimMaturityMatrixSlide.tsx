@@ -8,15 +8,16 @@ import {
   Cpu,
   Layers,
   FileText,
-  Save,
-  CheckCircle2,
+  Pencil,
+  Lock,
+  Unlock,
 } from 'lucide-react';
 import {
   subscribeToMatrixState,
   saveMatrixStateToCloud,
 } from '../lib/firebase';
 
-interface Dimension {
+export interface Dimension {
   id: string;
   category: 'tecnologia' | 'procesos' | 'politicas' | 'capacidad' | 'escala';
   name: string;
@@ -31,7 +32,7 @@ interface Dimension {
   }[];
 }
 
-const DIMENSIONS: Dimension[] = [
+export const DIMENSIONS: Dimension[] = [
   // --- TECNOLOGÍA (9 filas) ---
   {
     id: 'sw_seleccion',
@@ -505,7 +506,7 @@ const DIMENSIONS: Dimension[] = [
   }
 ];
 
-const DEFAULT_SELECTIONS: Record<string, number> = {
+export const DEFAULT_SELECTIONS: Record<string, number> = {
   // Tecnología (9)
   sw_seleccion: 1,
   sw_modelos: 1,
@@ -546,7 +547,80 @@ const DEFAULT_SELECTIONS: Record<string, number> = {
   esc_mercados: 0,
 };
 
-const LOCAL_DRAFT_KEY = 'mesh_bim_maturity_draft_v1';
+export const LOCAL_DRAFT_KEY = 'mesh_bim_maturity_draft_v1';
+
+export function generateAuditorTipsForSelections(
+  selections: Record<string, number>,
+  scorePercentage: number
+): string[] {
+  const sw =
+    ((selections.sw_seleccion || 0) +
+      (selections.sw_modelos || 0) +
+      (selections.sw_gestion || 0) +
+      (selections.sw_intercambios || 0)) /
+    4;
+  const hw =
+    ((selections.hw_equipamiento || 0) + (selections.hw_actualizacion || 0)) / 2;
+  const red =
+    ((selections.red_infraestructura || 0) +
+      (selections.red_canales || 0) +
+      (selections.red_conectividad || 0)) /
+    3;
+
+  const act =
+    ((selections.act_roles || 0) +
+      (selections.act_colaboracion || 0) +
+      (selections.act_productividad || 0)) /
+    3;
+  const mod = selections.mod_lod || 0;
+  const lid =
+    ((selections.lid_vision || 0) +
+      (selections.lid_estrategia || 0) +
+      (selections.lid_innovacion || 0)) /
+    3;
+
+  const con = selections.con_responsabilidades || 0;
+
+  const tips: string[] = [];
+
+  if ((sw + hw + red) / 3 > (act + mod + lid) / 3 + 0.8) {
+    tips.push(
+      '⚠️ Desequilibrio Tecnológico: Tu infraestructura de Hardware/Software está por delante de tus flujos de trabajo prácticos. Detén adquisiciones avanzadas y prioriza capacitar a tus colaboradores en la estandarización del modelado.'
+    );
+  }
+
+  if ((act + mod) / 2 > (sw + hw + red) / 3 + 0.8) {
+    tips.push(
+      '💡 Cuello de Botella de Red/Hardware: Tus intenciones y flujos están listos para la coordinación de alto nivel, pero los computadores lentos o redes inestables frustran el rendimiento técnico. Actualiza tu CDE.'
+    );
+  }
+
+  if (mod >= 2 && con < 2) {
+    tips.push(
+      '📋 Vulnerabilidad Contractual: Aunque modelas con precisión y gestionas el LOD, trabajas con contratos tradicionales sin cláusulas de propiedad intelectual o flujos de responsabilidad BIM. Introduce un Anexo EIR/BIM.'
+    );
+  }
+
+  if (scorePercentage < 20) {
+    tips.push(
+      '🚀 Diagnóstico Inicial: Tu organización está en un nivel primario. Te recomendamos arrancar con un piloto a pequeña escala. Define un estándar mínimo de 3 páginas de modelado para unificar criterios.'
+    );
+  } else if (scorePercentage < 50) {
+    tips.push(
+      '📌 Diagnóstico Nivel 1: Tienes herramientas de modelado pero operan de forma aislada. La prioridad de la empresa debe ser estructurar un Entorno Común de Datos (CDE) y homogeneizar las plantillas de inicio.'
+    );
+  } else if (scorePercentage < 80) {
+    tips.push(
+      '📈 Diagnóstico Nivel 2: Excelente base colaborativa. Para escalar al siguiente nivel, necesitas integrar flujos de control de calidad automatizados y consolidar auditorías semanales.'
+    );
+  } else {
+    tips.push(
+      '🌟 Diagnóstico Nivel 3: Tu corporación está en la cima del rendimiento. Invierte en integraciones con ERP, simulación BIM 5D en tiempo real o gemelos digitales (Digital Twins).'
+    );
+  }
+
+  return tips;
+}
 
 interface BimMaturityMatrixSlideProps {
   initialCategory?: 'tecnologia' | 'procesos' | 'politicas' | 'capacidad' | 'escala';
@@ -569,8 +643,8 @@ export const BimMaturityMatrixSlide: React.FC<BimMaturityMatrixSlideProps> = ({
   });
 
   const [activeCategory, setActiveCategory] = useState<'tecnologia' | 'procesos' | 'politicas' | 'capacidad' | 'escala'>(initialCategory);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+  const [isEditMode, setIsEditMode] = useState<boolean>(false);
+  const [lockedNotice, setLockedNotice] = useState<boolean>(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const isLocalChangeRef = useRef<boolean>(false);
 
@@ -638,86 +712,44 @@ export const BimMaturityMatrixSlide: React.FC<BimMaturityMatrixSlideProps> = ({
       } finally {
         isLocalChangeRef.current = false;
       }
-    }, 900);
+    }, 600);
     return () => clearTimeout(timer);
   }, [selections, scorePercentage, maturityCategory]);
 
   const handleCellClick = (dimensionId: string, levelIndex: number) => {
+    if (!isEditMode) {
+      setLockedNotice(true);
+      setTimeout(() => setLockedNotice(false), 1800);
+      return;
+    }
     isLocalChangeRef.current = true;
-    setSaveSuccess(false);
     setSelections(prev => ({
       ...prev,
       [dimensionId]: levelIndex
     }));
   };
 
-  const handleManualSave = async () => {
-    setIsSaving(true);
-    setSaveSuccess(false);
-    try {
-      localStorage.setItem(
-        LOCAL_DRAFT_KEY,
-        JSON.stringify({ selections, updatedAt: new Date().toISOString() })
-      );
-      await saveMatrixStateToCloud(selections, scorePercentage, maturityCategory);
-      isLocalChangeRef.current = false;
-      setLastSavedAt(
-        new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      );
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } catch {
-      // LocalStorage already saved
-      setLastSavedAt(
-        new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      );
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
-    } finally {
-      setIsSaving(false);
+  const handleToggleEditMode = async () => {
+    const nextMode = !isEditMode;
+    setIsEditMode(nextMode);
+    setLockedNotice(false);
+    if (!nextMode) {
+      try {
+        localStorage.setItem(
+          LOCAL_DRAFT_KEY,
+          JSON.stringify({ selections, updatedAt: new Date().toISOString() })
+        );
+        await saveMatrixStateToCloud(selections, scorePercentage, maturityCategory);
+        setLastSavedAt(
+          new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        );
+      } catch {
+        // Already persisted locally
+      }
     }
   };
 
-  // Generate a custom technical auditor prescription report
-  const generateAuditorTips = () => {
-    const sw = ((selections.sw_seleccion || 0) + (selections.sw_modelos || 0) + (selections.sw_gestion || 0) + (selections.sw_intercambios || 0)) / 4;
-    const hw = ((selections.hw_equipamiento || 0) + (selections.hw_actualizacion || 0)) / 2;
-    const red = ((selections.red_infraestructura || 0) + (selections.red_canales || 0) + (selections.red_conectividad || 0)) / 3;
-    
-    const act = ((selections.act_roles || 0) + (selections.act_colaboracion || 0) + (selections.act_productividad || 0)) / 3;
-    const mod = selections.mod_lod || 0;
-    const lid = ((selections.lid_vision || 0) + (selections.lid_estrategia || 0) + (selections.lid_innovacion || 0)) / 3;
-
-    const con = selections.con_responsabilidades || 0;
-
-    const tips: string[] = [];
-
-    if ((sw + hw + red) / 3 > (act + mod + lid) / 3 + 0.8) {
-      tips.push("⚠️ Desequilibrio Tecnológico: Tu infraestructura de Hardware/Software está por delante de tus flujos de trabajo prácticos. Detén adquisiciones avanzadas y prioriza capacitar a tus colaboradores en la estandarización del modelado.");
-    }
-
-    if ((act + mod) / 2 > (sw + hw + red) / 3 + 0.8) {
-      tips.push("💡 Cuello de Botella de Red/Hardware: Tus intenciones y flujos están listos para la coordinación de alto nivel, pero los computadores lentos o redes inestables frustran el rendimiento técnico. Actualiza tu CDE.");
-    }
-
-    if (mod >= 2 && con < 2) {
-      tips.push("📋 Vulnerabilidad Contractual: Aunque modelas con precisión y gestionas el LOD, trabajas con contratos tradicionales sin cláusulas de propiedad intelectual o flujos de responsabilidad BIM. Introduce un Anexo EIR/BIM.");
-    }
-
-    if (scorePercentage < 20) {
-      tips.push("🚀 Diagnóstico Inicial: Tu organización está en un nivel primario. Te recomendamos arrancar con un piloto a pequeña escala. Define un estándar mínimo de 3 páginas de modelado para unificar criterios.");
-    } else if (scorePercentage < 50) {
-      tips.push("📌 Diagnóstico Nivel 1: Tienes herramientas de modelado pero operan de forma aislada. La prioridad de la empresa debe ser estructurar un Entorno Común de Datos (CDE) y homogeneizar las plantillas de inicio.");
-    } else if (scorePercentage < 80) {
-      tips.push("📈 Diagnóstico Nivel 2: Excelente base colaborativa. Para escalar al siguiente nivel, necesitas integrar flujos de control de calidad automatizados y consolidar auditorías semanales.");
-    } else {
-      tips.push("🌟 Diagnóstico Nivel 3: Tu corporación está en la cima del rendimiento. Invierte en integraciones con ERP, simulación BIM 5D en tiempo real o gemelos digitales (Digital Twins).");
-    }
-
-    return tips;
-  };
-
-  const auditorPrescriptions = generateAuditorTips();
+  const auditorPrescriptions = generateAuditorTipsForSelections(selections, scorePercentage);
 
   const filteredDimensions = DIMENSIONS.filter(
     dim => dim.category === activeCategory
@@ -725,7 +757,7 @@ export const BimMaturityMatrixSlide: React.FC<BimMaturityMatrixSlideProps> = ({
 
   return (
     <div className="space-y-6 w-full max-w-6xl mx-auto text-slate-900 font-sans pb-8" id="maturity-slide">
-      {/* Header with Save Button */}
+      {/* Header with Edit / Lock Button */}
       <div className="border-b border-slate-200 pb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
@@ -735,25 +767,40 @@ export const BimMaturityMatrixSlide: React.FC<BimMaturityMatrixSlideProps> = ({
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          {saveSuccess ? (
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span>Cambios guardados</span>
+          {isEditMode ? (
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700">
+              <Unlock className="w-3.5 h-3.5 text-amber-600" />
+              <span>Edición activa</span>
             </span>
-          ) : lastSavedAt ? (
-            <span className="text-xs text-slate-500 font-mono tabular-nums">
-              Guardado · {lastSavedAt}
+          ) : (
+            <span className="inline-flex items-center gap-1.5 text-xs text-slate-500 font-mono tabular-nums">
+              <Lock className="w-3.5 h-3.5 text-slate-400" />
+              <span>{lastSavedAt ? `Protegido · ${lastSavedAt}` : 'Modo lectura'}</span>
             </span>
-          ) : null}
+          )}
 
           <button
             type="button"
-            onClick={handleManualSave}
-            disabled={isSaving}
-            className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-60 whitespace-nowrap"
+            onClick={handleToggleEditMode}
+            className={`inline-flex items-center gap-2 text-xs font-bold px-4 py-2.5 rounded-xl shadow-xs transition-all cursor-pointer whitespace-nowrap ${
+              isEditMode
+                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                : lockedNotice
+                ? 'bg-amber-600 hover:bg-amber-700 text-white ring-2 ring-amber-400/50'
+                : 'bg-slate-900 hover:bg-slate-800 text-white'
+            }`}
           >
-            <Save className="w-4 h-4" />
-            <span>{isSaving ? 'Guardando...' : 'Guardar Cambios'}</span>
+            {isEditMode ? (
+              <>
+                <Lock className="w-4 h-4" />
+                <span>Bloquear Edición</span>
+              </>
+            ) : (
+              <>
+                <Pencil className="w-4 h-4" />
+                <span>Editar Matriz</span>
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -884,9 +931,21 @@ export const BimMaturityMatrixSlide: React.FC<BimMaturityMatrixSlideProps> = ({
           <h3 className="text-xs font-mono font-bold text-slate-700 uppercase tracking-wider">
             Selección Interactiva de Capacidad
           </h3>
-          <span className="text-xs text-slate-500">
-            Haz clic en cada celda para actualizar tu nivel de madurez
-          </span>
+          {isEditMode ? (
+            <span className="text-xs font-semibold text-emerald-700">
+              Edición activa · Haz clic en cada celda para actualizar el nivel de madurez
+            </span>
+          ) : (
+            <span
+              className={`text-xs transition-colors ${
+                lockedNotice ? 'text-amber-700 font-bold' : 'text-slate-500'
+              }`}
+            >
+              {lockedNotice
+                ? 'Matriz protegida · Haz clic en "Editar Matriz" arriba a la derecha para modificar niveles'
+                : 'Matriz en modo lectura para evitar cambios accidentales · Pulsa "Editar Matriz" para modificar'}
+            </span>
+          )}
         </div>
 
         <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-xs">
@@ -924,10 +983,12 @@ export const BimMaturityMatrixSlide: React.FC<BimMaturityMatrixSlideProps> = ({
                         type="button"
                         key={index}
                         onClick={() => handleCellClick(dim.id, index)}
-                        className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between min-h-[112px] cursor-pointer group ${
+                        className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between min-h-[112px] group ${
                           isSelected
                             ? `${lvl.bg} ${lvl.border} ring-2 ring-emerald-600/25 text-slate-900 shadow-xs`
-                            : 'bg-slate-50/70 border-slate-200 text-slate-700 hover:bg-slate-100/80 hover:border-slate-300'
+                            : isEditMode
+                            ? 'bg-slate-50/70 border-slate-200 text-slate-700 hover:bg-slate-100/80 hover:border-slate-300 cursor-pointer'
+                            : 'bg-slate-50/50 border-slate-200/80 text-slate-600 cursor-not-allowed opacity-85'
                         }`}
                       >
                         {isSelected && (
@@ -938,7 +999,7 @@ export const BimMaturityMatrixSlide: React.FC<BimMaturityMatrixSlideProps> = ({
                         <span className={`text-[10px] font-mono uppercase font-bold tracking-wider pr-5 ${isSelected ? lvl.color : 'text-slate-500'}`}>
                           {lvl.title}
                         </span>
-                        <p className={`text-[11px] leading-snug mt-2 ${isSelected ? 'text-slate-900 font-medium' : 'text-slate-600 group-hover:text-slate-800'}`}>
+                        <p className={`text-[11px] leading-snug mt-2 ${isSelected ? 'text-slate-900 font-medium' : isEditMode ? 'text-slate-600 group-hover:text-slate-800' : 'text-slate-600'}`}>
                           {lvl.description}
                         </p>
                       </button>
