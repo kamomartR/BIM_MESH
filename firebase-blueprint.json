@@ -31,6 +31,146 @@
         "maturityCategory",
         "updatedAt"
       ]
+    },
+    "ImplementationGoals": {
+      "title": "ImplementationGoals",
+      "description": "Stores executive BIM implementation targets per category, item and timeline for Mesh Estudio.",
+      "type": "object",
+      "properties": {
+        "targetSelections": {
+          "type": "object",
+          "description": "Target level (0 to 4) for each of the 33 BIM maturity dimensions."
+        },
+        "categoryTargets": {
+          "type": "object",
+          "description": "Target percentage (0 to 100) for each of the 5 categories."
+        },
+        "targetScorePercentage": {
+          "type": "integer",
+          "description": "Overall target maturity score from 0 to 100."
+        },
+        "targetPeriod": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Target timeline label or quarter (e.g. Q4 2026)."
+        },
+        "targetDate": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "Target completion date (YYYY-MM-DD)."
+        },
+        "responsibleRole": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Lead role or department responsible for reaching the targets."
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Executive notes and strategic justification for the implementation goals."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last update."
+        }
+      },
+      "required": [
+        "targetSelections",
+        "categoryTargets",
+        "targetScorePercentage",
+        "targetPeriod",
+        "targetDate",
+        "responsibleRole",
+        "notes",
+        "updatedAt"
+      ]
+    },
+    "Iso9001MatrixState": {
+      "title": "Iso9001MatrixState",
+      "description": "Stores the current state of the 21-requirement ISO 9001 Quality Management System Matrix for Mesh Estudio.",
+      "type": "object",
+      "properties": {
+        "selections": {
+          "type": "object",
+          "description": "Map of the 21 ISO 9001 requirement IDs to their selected level index (0 to 4)."
+        },
+        "scorePercentage": {
+          "type": "integer",
+          "description": "Computed overall ISO 9001 quality score from 0 to 100."
+        },
+        "maturityCategory": {
+          "type": "string",
+          "maxLength": 120,
+          "minLength": 1,
+          "description": "Classification label of the achieved quality maturity level."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the last save operation."
+        }
+      },
+      "required": [
+        "selections",
+        "scorePercentage",
+        "maturityCategory",
+        "updatedAt"
+      ]
+    },
+    "Iso9001ImplementationGoals": {
+      "title": "Iso9001ImplementationGoals",
+      "description": "Stores executive ISO 9001 Quality System targets per clause, item and timeline for Mesh Estudio.",
+      "type": "object",
+      "properties": {
+        "targetSelections": {
+          "type": "object",
+          "description": "Target level (0 to 4) for each of the 21 ISO 9001 requirements."
+        },
+        "categoryTargets": {
+          "type": "object",
+          "description": "Target percentage (0 to 100) for each of the 7 clauses."
+        },
+        "targetScorePercentage": {
+          "type": "integer",
+          "description": "Overall target quality score from 0 to 100."
+        },
+        "targetPeriod": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Target timeline label or quarter (e.g. Q4 2026)."
+        },
+        "targetDate": {
+          "type": "string",
+          "maxLength": 32,
+          "description": "Target completion date (YYYY-MM-DD)."
+        },
+        "responsibleRole": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Lead role or department responsible for reaching the targets."
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Executive notes and strategic justification for the quality targets."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last update."
+        }
+      },
+      "required": [
+        "targetSelections",
+        "categoryTargets",
+        "targetScorePercentage",
+        "targetPeriod",
+        "targetDate",
+        "responsibleRole",
+        "notes",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -39,6 +179,24 @@
         "$ref": "#/entities/MatrixState"
       },
       "description": "Singleton document (mesh_estudio) storing the BIM Maturity Matrix progress."
+    },
+    "/goals/{goalId}": {
+      "schema": {
+        "$ref": "#/entities/ImplementationGoals"
+      },
+      "description": "Singleton document (mesh_estudio) storing the BIM Implementation Goals and targets."
+    },
+    "/matrices_iso9001/{matrixId}": {
+      "schema": {
+        "$ref": "#/entities/Iso9001MatrixState"
+      },
+      "description": "Singleton document (mesh_estudio) storing the ISO 9001 Quality Matrix progress."
+    },
+    "/goals_iso9001/{goalId}": {
+      "schema": {
+        "$ref": "#/entities/Iso9001ImplementationGoals"
+      },
+      "description": "Singleton document (mesh_estudio) storing the ISO 9001 Quality Goals and targets."
     }
   }
 }
