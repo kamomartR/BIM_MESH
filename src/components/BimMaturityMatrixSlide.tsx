@@ -866,62 +866,62 @@ export const BimMaturityMatrixSlide: React.FC<BimMaturityMatrixSlideProps> = ({
         </div>
       </div>
 
-      {/* TAB BAR FOR CATEGORY FILTERING (Sober segmented control like reference dashboard) */}
-      <div className="flex items-center p-1 bg-slate-100 rounded-xl overflow-x-auto gap-1 border border-slate-200/60">
+      {/* TAB BAR FOR CATEGORY FILTERING */}
+      <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
         <button
           type="button"
           onClick={() => setActiveCategory('tecnologia')}
-          className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+          className={`px-4 py-2 text-xs font-mono font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
             activeCategory === 'tecnologia'
-              ? 'bg-slate-900 text-white font-bold shadow-2xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
           }`}
         >
-          1. Tecnología ({DIMENSIONS.filter(d => d.category === 'tecnologia').length})
+          1. Tecnología ({DIMENSIONS.filter(d => d.category === 'tecnologia').length} filas)
         </button>
         <button
           type="button"
           onClick={() => setActiveCategory('procesos')}
-          className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+          className={`px-4 py-2 text-xs font-mono font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
             activeCategory === 'procesos'
-              ? 'bg-slate-900 text-white font-bold shadow-2xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
           }`}
         >
-          2. Procesos ({DIMENSIONS.filter(d => d.category === 'procesos').length})
+          2. Procesos ({DIMENSIONS.filter(d => d.category === 'procesos').length} filas)
         </button>
         <button
           type="button"
           onClick={() => setActiveCategory('politicas')}
-          className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+          className={`px-4 py-2 text-xs font-mono font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
             activeCategory === 'politicas'
-              ? 'bg-slate-900 text-white font-bold shadow-2xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              ? 'bg-purple-600 text-white shadow-xs'
+              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
           }`}
         >
-          3. Políticas ({DIMENSIONS.filter(d => d.category === 'politicas').length})
+          3. Políticas ({DIMENSIONS.filter(d => d.category === 'politicas').length} filas)
         </button>
         <button
           type="button"
           onClick={() => setActiveCategory('capacidad')}
-          className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+          className={`px-4 py-2 text-xs font-mono font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
             activeCategory === 'capacidad'
-              ? 'bg-slate-900 text-white font-bold shadow-2xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              ? 'bg-amber-600 text-white shadow-xs'
+              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
           }`}
         >
-          4. Capacidad BIM ({DIMENSIONS.filter(d => d.category === 'capacidad').length})
+          4. Capacidad BIM ({DIMENSIONS.filter(d => d.category === 'capacidad').length} filas)
         </button>
         <button
           type="button"
           onClick={() => setActiveCategory('escala')}
-          className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+          className={`px-4 py-2 text-xs font-mono font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
             activeCategory === 'escala'
-              ? 'bg-slate-900 text-white font-bold shadow-2xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              ? 'bg-pink-600 text-white shadow-xs'
+              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
           }`}
         >
-          5. Escala ({DIMENSIONS.filter(d => d.category === 'escala').length})
+          5. Escala ({DIMENSIONS.filter(d => d.category === 'escala').length} filas)
         </button>
       </div>
 

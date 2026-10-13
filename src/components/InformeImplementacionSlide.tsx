@@ -23,10 +23,9 @@ import {
   AlertTriangle,
   ArrowRight,
   Layers,
-  Target,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
-import { subscribeToMatrixState, subscribeToGoalsState } from '../lib/firebase';
+import { subscribeToMatrixState } from '../lib/firebase';
 import {
   DIMENSIONS,
   DEFAULT_SELECTIONS,
@@ -34,11 +33,9 @@ import {
   generateAuditorTipsForSelections,
 } from './BimMaturityMatrixSlide';
 import { MatrixCategory } from './PortadaSlide';
-import { LOCAL_GOALS_KEY, DEFAULT_CATEGORY_TARGETS } from './MetasConfigSlide';
 
 interface InformeImplementacionSlideProps {
   onOpenMatrix: (category?: MatrixCategory) => void;
-  onOpenMetas?: () => void;
 }
 
 interface VectorStat {
@@ -416,11 +413,11 @@ function renderRadarChartPng(vectorStats: VectorStat[]): string {
     ctx.stroke();
   }
 
-  // Target / Benchmark Polygon (Meta Configurada)
+  // 50% Benchmark Polygon (Meta Consolidación)
   ctx.save();
   ctx.beginPath();
   for (let i = 0; i < count; i++) {
-    const pt = getVertex(i, Math.max(4, vectorStats[i].benchmark));
+    const pt = getVertex(i, 50);
     if (i === 0) ctx.moveTo(pt.x, pt.y);
     else ctx.lineTo(pt.x, pt.y);
   }
@@ -615,7 +612,6 @@ function renderDistributionAndGaugePng(
 
 export const InformeImplementacionSlide: React.FC<InformeImplementacionSlideProps> = ({
   onOpenMatrix,
-  onOpenMetas,
 }) => {
   const [selections, setSelections] = useState<Record<string, number>>(() => {
     try {
@@ -630,32 +626,6 @@ export const InformeImplementacionSlide: React.FC<InformeImplementacionSlideProp
     return DEFAULT_SELECTIONS;
   });
 
-  const [categoryTargets, setCategoryTargets] = useState<Record<MatrixCategory, number>>(() => {
-    try {
-      const saved = localStorage.getItem(LOCAL_GOALS_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed?.categoryTargets) return { ...DEFAULT_CATEGORY_TARGETS, ...parsed.categoryTargets };
-      }
-    } catch {
-      // Ignore
-    }
-    return DEFAULT_CATEGORY_TARGETS;
-  });
-
-  const [targetPeriod, setTargetPeriod] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem(LOCAL_GOALS_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed?.targetPeriod) return parsed.targetPeriod;
-      }
-    } catch {
-      // Ignore
-    }
-    return 'Q4 2026';
-  });
-
   const [filterVector, setFilterVector] = useState<'all' | 'gaps' | MatrixCategory>('all');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
@@ -666,24 +636,6 @@ export const InformeImplementacionSlide: React.FC<InformeImplementacionSlideProp
       }
     });
     return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const unsub = subscribeToGoalsState((cloudGoals) => {
-      if (cloudGoals) {
-        if (cloudGoals.categoryTargets) {
-          setCategoryTargets({
-            tecnologia: cloudGoals.categoryTargets.tecnologia ?? DEFAULT_CATEGORY_TARGETS.tecnologia,
-            procesos: cloudGoals.categoryTargets.procesos ?? DEFAULT_CATEGORY_TARGETS.procesos,
-            politicas: cloudGoals.categoryTargets.politicas ?? DEFAULT_CATEGORY_TARGETS.politicas,
-            capacidad: cloudGoals.categoryTargets.capacidad ?? DEFAULT_CATEGORY_TARGETS.capacidad,
-            escala: cloudGoals.categoryTargets.escala ?? DEFAULT_CATEGORY_TARGETS.escala,
-          });
-        }
-        if (cloudGoals.targetPeriod) setTargetPeriod(cloudGoals.targetPeriod);
-      }
-    });
-    return () => unsub();
   }, []);
 
   // Compute global metrics
@@ -711,7 +663,6 @@ export const InformeImplementacionSlide: React.FC<InformeImplementacionSlideProp
     const vecMax = dims.length * 4;
     const percentage = Math.round((vecPoints / vecMax) * 100);
     const avgLvl = Number((vecPoints / dims.length).toFixed(2));
-    const targetBenchmark = categoryTargets[vec.id] ?? 50;
     return {
       ...vec,
       dimensionsCount: dims.length,
@@ -719,7 +670,7 @@ export const InformeImplementacionSlide: React.FC<InformeImplementacionSlideProp
       maxPoints: vecMax,
       percentage,
       avgLevel: avgLvl,
-      benchmark: targetBenchmark,
+      benchmark: 50,
     };
   });
 

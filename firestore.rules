@@ -21,7 +21,6 @@ service cloud.firestore {
       return val is int && val >= 0 && val <= 4;
     }
 
-    // --- ISO 19650 BIM RULES ---
     function isValidSelections(s) {
       return s is map
         && s.size() == 33
@@ -73,110 +72,6 @@ service cloud.firestore {
         && data.updatedAt == request.time;
     }
 
-    function isValidCategoryTargets(c) {
-      return c is map
-        && c.size() == 5
-        && c.tecnologia is int && c.tecnologia >= 0 && c.tecnologia <= 100
-        && c.procesos is int && c.procesos >= 0 && c.procesos <= 100
-        && c.politicas is int && c.politicas >= 0 && c.politicas <= 100
-        && c.capacidad is int && c.capacidad >= 0 && c.capacidad <= 100
-        && c.escala is int && c.escala >= 0 && c.escala <= 100;
-    }
-
-    function isValidGoalsState(data) {
-      return data.keys().hasAll(['targetSelections', 'categoryTargets', 'targetScorePercentage', 'targetPeriod', 'targetDate', 'responsibleRole', 'notes', 'updatedAt'])
-        && data.keys().hasOnly(['targetSelections', 'categoryTargets', 'targetScorePercentage', 'targetPeriod', 'targetDate', 'responsibleRole', 'notes', 'updatedAt'])
-        && isValidSelections(data.targetSelections)
-        && isValidCategoryTargets(data.categoryTargets)
-        && data.targetScorePercentage is int
-        && data.targetScorePercentage >= 0
-        && data.targetScorePercentage <= 100
-        && data.targetPeriod is string
-        && data.targetPeriod.size() >= 1
-        && data.targetPeriod.size() <= 64
-        && data.targetDate is string
-        && data.targetDate.size() >= 1
-        && data.targetDate.size() <= 32
-        && data.responsibleRole is string
-        && data.responsibleRole.size() <= 100
-        && data.notes is string
-        && data.notes.size() <= 1000
-        && data.updatedAt == request.time;
-    }
-
-    // --- ISO 9001 RULES ---
-    function isValidIso9001Selections(s) {
-      return s is map
-        && s.size() == 21
-        && isValidLevel(s.iso_4_1_contexto)
-        && isValidLevel(s.iso_4_2_partes)
-        && isValidLevel(s.iso_4_3_alcance)
-        && isValidLevel(s.iso_5_1_compromiso)
-        && isValidLevel(s.iso_5_2_politica)
-        && isValidLevel(s.iso_5_3_roles)
-        && isValidLevel(s.iso_6_1_riesgos)
-        && isValidLevel(s.iso_6_2_objetivos)
-        && isValidLevel(s.iso_6_3_cambio)
-        && isValidLevel(s.iso_7_1_recursos)
-        && isValidLevel(s.iso_7_2_competencia)
-        && isValidLevel(s.iso_7_3_documentacion)
-        && isValidLevel(s.iso_8_1_requisitos)
-        && isValidLevel(s.iso_8_2_diseno)
-        && isValidLevel(s.iso_8_3_proveedores)
-        && isValidLevel(s.iso_8_4_salidas_nc)
-        && isValidLevel(s.iso_9_1_satisfaccion)
-        && isValidLevel(s.iso_9_2_auditorias)
-        && isValidLevel(s.iso_9_3_revision_dir)
-        && isValidLevel(s.iso_10_1_acciones_corr)
-        && isValidLevel(s.iso_10_2_mejora_continua);
-    }
-
-    function isValidIso9001MatrixState(data) {
-      return data.keys().hasAll(['selections', 'scorePercentage', 'maturityCategory', 'updatedAt'])
-        && data.keys().hasOnly(['selections', 'scorePercentage', 'maturityCategory', 'updatedAt'])
-        && isValidIso9001Selections(data.selections)
-        && data.scorePercentage is int
-        && data.scorePercentage >= 0
-        && data.scorePercentage <= 100
-        && data.maturityCategory is string
-        && data.maturityCategory.size() >= 1
-        && data.maturityCategory.size() <= 120
-        && data.updatedAt == request.time;
-    }
-
-    function isValidIso9001CategoryTargets(c) {
-      return c is map
-        && c.size() == 7
-        && c.contexto is int && c.contexto >= 0 && c.contexto <= 100
-        && c.liderazgo is int && c.liderazgo >= 0 && c.liderazgo <= 100
-        && c.planificacion is int && c.planificacion >= 0 && c.planificacion <= 100
-        && c.apoyo is int && c.apoyo >= 0 && c.apoyo <= 100
-        && c.operacion is int && c.operacion >= 0 && c.operacion <= 100
-        && c.evaluacion is int && c.evaluacion >= 0 && c.evaluacion <= 100
-        && c.mejora is int && c.mejora >= 0 && c.mejora <= 100;
-    }
-
-    function isValidIso9001GoalsState(data) {
-      return data.keys().hasAll(['targetSelections', 'categoryTargets', 'targetScorePercentage', 'targetPeriod', 'targetDate', 'responsibleRole', 'notes', 'updatedAt'])
-        && data.keys().hasOnly(['targetSelections', 'categoryTargets', 'targetScorePercentage', 'targetPeriod', 'targetDate', 'responsibleRole', 'notes', 'updatedAt'])
-        && isValidIso9001Selections(data.targetSelections)
-        && isValidIso9001CategoryTargets(data.categoryTargets)
-        && data.targetScorePercentage is int
-        && data.targetScorePercentage >= 0
-        && data.targetScorePercentage <= 100
-        && data.targetPeriod is string
-        && data.targetPeriod.size() >= 1
-        && data.targetPeriod.size() <= 64
-        && data.targetDate is string
-        && data.targetDate.size() >= 1
-        && data.targetDate.size() <= 32
-        && data.responsibleRole is string
-        && data.responsibleRole.size() <= 100
-        && data.notes is string
-        && data.notes.size() <= 1000
-        && data.updatedAt == request.time;
-    }
-
     match /matrices/{matrixId} {
       allow get: if isValidId(matrixId) && matrixId == 'mesh_estudio';
       allow list: if false;
@@ -185,39 +80,6 @@ service cloud.firestore {
         && matrixId == 'mesh_estudio'
         && isValidMatrixState(incoming())
         && incoming().diff(existing()).affectedKeys().hasOnly(['selections', 'scorePercentage', 'maturityCategory', 'updatedAt']);
-      allow delete: if false;
-    }
-
-    match /goals/{goalId} {
-      allow get: if isValidId(goalId) && goalId == 'mesh_estudio';
-      allow list: if false;
-      allow create: if isValidId(goalId) && goalId == 'mesh_estudio' && isValidGoalsState(incoming());
-      allow update: if isValidId(goalId)
-        && goalId == 'mesh_estudio'
-        && isValidGoalsState(incoming())
-        && incoming().diff(existing()).affectedKeys().hasOnly(['targetSelections', 'categoryTargets', 'targetScorePercentage', 'targetPeriod', 'targetDate', 'responsibleRole', 'notes', 'updatedAt']);
-      allow delete: if false;
-    }
-
-    match /matrices_iso9001/{matrixId} {
-      allow get: if isValidId(matrixId) && matrixId == 'mesh_estudio';
-      allow list: if false;
-      allow create: if isValidId(matrixId) && matrixId == 'mesh_estudio' && isValidIso9001MatrixState(incoming());
-      allow update: if isValidId(matrixId)
-        && matrixId == 'mesh_estudio'
-        && isValidIso9001MatrixState(incoming())
-        && incoming().diff(existing()).affectedKeys().hasOnly(['selections', 'scorePercentage', 'maturityCategory', 'updatedAt']);
-      allow delete: if false;
-    }
-
-    match /goals_iso9001/{goalId} {
-      allow get: if isValidId(goalId) && goalId == 'mesh_estudio';
-      allow list: if false;
-      allow create: if isValidId(goalId) && goalId == 'mesh_estudio' && isValidIso9001GoalsState(incoming());
-      allow update: if isValidId(goalId)
-        && goalId == 'mesh_estudio'
-        && isValidIso9001GoalsState(incoming())
-        && incoming().diff(existing()).affectedKeys().hasOnly(['targetSelections', 'categoryTargets', 'targetScorePercentage', 'targetPeriod', 'targetDate', 'responsibleRole', 'notes', 'updatedAt']);
       allow delete: if false;
     }
   }
