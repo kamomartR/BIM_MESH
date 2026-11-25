@@ -11,11 +11,14 @@ import {
   Pencil,
   Lock,
   Unlock,
+  FileSpreadsheet,
+  Download,
 } from 'lucide-react';
 import {
   subscribeToMatrixState,
   saveMatrixStateToCloud,
 } from '../lib/firebase';
+import { exportBimMatrixToExcel } from '../lib/excelExport';
 
 export interface Dimension {
   id: string;
@@ -778,6 +781,16 @@ export const BimMaturityMatrixSlide: React.FC<BimMaturityMatrixSlideProps> = ({
               <span>{lastSavedAt ? `Protegido · ${lastSavedAt}` : 'Modo lectura'}</span>
             </span>
           )}
+
+          <button
+            type="button"
+            onClick={() => exportBimMatrixToExcel(selections)}
+            className="inline-flex items-center gap-2 text-xs font-bold px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-2xs transition-all cursor-pointer whitespace-nowrap"
+            title="Descargar Matriz BIM ISO 19650 completa en formato Excel (.xlsx)"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            <span>Descargar Excel (.xlsx)</span>
+          </button>
 
           <button
             type="button"
