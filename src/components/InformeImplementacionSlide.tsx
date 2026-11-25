@@ -23,9 +23,12 @@ import {
   AlertTriangle,
   ArrowRight,
   Layers,
+  Target,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
-import { subscribeToMatrixState } from '../lib/firebase';
+import { subscribeToMatrixState, subscribeToGoalsState } from '../lib/firebase';
+import { exportBimMatrixToExcel } from '../lib/excelExport';
 import {
   DIMENSIONS,
   DEFAULT_SELECTIONS,
@@ -33,9 +36,11 @@ import {
   generateAuditorTipsForSelections,
 } from './BimMaturityMatrixSlide';
 import { MatrixCategory } from './PortadaSlide';
+import { LOCAL_GOALS_KEY, DEFAULT_CATEGORY_TARGETS } from './MetasConfigSlide';
 
 interface InformeImplementacionSlideProps {
   onOpenMatrix: (category?: MatrixCategory) => void;
+  onOpenMetas?: () => void;
 }
 
 interface VectorStat {
@@ -413,11 +418,11 @@ function renderRadarChartPng(vectorStats: VectorStat[]): string {
     ctx.stroke();
   }
 
-  // 50% Benchmark Polygon (Meta Consolidación)
+  // Target / Benchmark Polygon (Meta Configurada)
   ctx.save();
   ctx.beginPath();
   for (let i = 0; i < count; i++) {
-    const pt = getVertex(i, 50);
+    const pt = getVertex(i, Math.max(4, vectorStats[i].benchmark));
     if (i === 0) ctx.moveTo(pt.x, pt.y);
     else ctx.lineTo(pt.x, pt.y);
   }
@@ -612,6 +617,7 @@ function renderDistributionAndGaugePng(
 
 export const InformeImplementacionSlide: React.FC<InformeImplementacionSlideProps> = ({
   onOpenMatrix,
+  onOpenMetas,
 }) => {
   const [selections, setSelections] = useState<Record<string, number>>(() => {
     try {
@@ -626,6 +632,19 @@ export const InformeImplementacionSlide: React.FC<InformeImplementacionSlideProp
     return DEFAULT_SELECTIONS;
   });
 
+  const [categoryTargets, setCategoryTargets] = useState<Record<MatrixCategory, number>>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_GOALS_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.categoryTargets) return { ...DEFAULT_CATEGORY_TARGETS, ...parsed.categoryTargets };
+      }
+    } catch {
+      // Ignore
+    }
+    return DEFAULT_CATEGORY_TARGETS;
+  });
+
   const [filterVector, setFilterVector] = useState<'all' | 'gaps' | MatrixCategory>('all');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
@@ -636,6 +655,21 @@ export const InformeImplementacionSlide: React.FC<InformeImplementacionSlideProp
       }
     });
     return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const unsub = subscribeToGoalsState((cloudGoals) => {
+      if (cloudGoals?.categoryTargets) {
+        setCategoryTargets({
+          tecnologia: cloudGoals.categoryTargets.tecnologia ?? DEFAULT_CATEGORY_TARGETS.tecnologia,
+          procesos: cloudGoals.categoryTargets.procesos ?? DEFAULT_CATEGORY_TARGETS.procesos,
+          politicas: cloudGoals.categoryTargets.politicas ?? DEFAULT_CATEGORY_TARGETS.politicas,
+          capacidad: cloudGoals.categoryTargets.capacidad ?? DEFAULT_CATEGORY_TARGETS.capacidad,
+          escala: cloudGoals.categoryTargets.escala ?? DEFAULT_CATEGORY_TARGETS.escala,
+        });
+      }
+    });
+    return () => unsub();
   }, []);
 
   // Compute global metrics
@@ -663,6 +697,7 @@ export const InformeImplementacionSlide: React.FC<InformeImplementacionSlideProp
     const vecMax = dims.length * 4;
     const percentage = Math.round((vecPoints / vecMax) * 100);
     const avgLvl = Number((vecPoints / dims.length).toFixed(2));
+    const targetBenchmark = categoryTargets[vec.id] ?? 50;
     return {
       ...vec,
       dimensionsCount: dims.length,
@@ -670,7 +705,7 @@ export const InformeImplementacionSlide: React.FC<InformeImplementacionSlideProp
       maxPoints: vecMax,
       percentage,
       avgLevel: avgLvl,
-      benchmark: 50,
+      benchmark: targetBenchmark,
     };
   });
 
@@ -1009,7 +1044,28 @@ export const InformeImplementacionSlide: React.FC<InformeImplementacionSlideProp
           </div>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+          {onOpenMetas && (
+            <button
+              type="button"
+              onClick={onOpenMetas}
+              className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-2xs transition-all cursor-pointer whitespace-nowrap"
+            >
+              <Target className="w-4 h-4 text-slate-700 shrink-0" />
+              <span>Ajustar Metas</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => exportBimMatrixToExcel(selections)}
+            className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-2xs transition-all cursor-pointer whitespace-nowrap"
+            title="Descargar Matriz de Madurez BIM y Metas en formato Excel (.xlsx)"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>Descargar Excel (.xlsx)</span>
+          </button>
+
           <button
             type="button"
             onClick={handleDownloadPdf}

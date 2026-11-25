@@ -8,6 +8,8 @@ import {
   Compass,
   TrendingUp,
   CheckCircle2,
+  Target,
+  ListOrdered,
 } from 'lucide-react';
 import { subscribeToMatrixState } from '../lib/firebase';
 
@@ -15,6 +17,8 @@ export type MatrixCategory = 'tecnologia' | 'procesos' | 'politicas' | 'capacida
 
 interface PortadaSlideProps {
   onOpenMatrix: (category?: MatrixCategory) => void;
+  onOpenMetas?: () => void;
+  onOpenRoadmap?: () => void;
 }
 
 const LOCAL_DRAFT_KEY = 'mesh_bim_maturity_draft_v1';
@@ -87,7 +91,11 @@ const PILLARS: {
   },
 ];
 
-export const PortadaSlide: React.FC<PortadaSlideProps> = ({ onOpenMatrix }) => {
+export const PortadaSlide: React.FC<PortadaSlideProps> = ({
+  onOpenMatrix,
+  onOpenMetas,
+  onOpenRoadmap,
+}) => {
   const [scorePercentage, setScorePercentage] = useState<number>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_DRAFT_KEY);
@@ -153,20 +161,42 @@ export const PortadaSlide: React.FC<PortadaSlideProps> = ({ onOpenMatrix }) => {
             </div>
 
             {/* Primary CTA & Action Row */}
-            <div className="pt-2 flex flex-wrap items-center gap-4">
+            <div className="pt-2 flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={() => onOpenMatrix()}
-                className="inline-flex items-center gap-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white text-sm font-bold px-6 py-3.5 rounded-xl shadow-xs transition-all cursor-pointer whitespace-nowrap shrink-0"
+                className="inline-flex items-center gap-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white text-sm font-bold px-5 py-3 rounded-xl shadow-xs transition-all cursor-pointer whitespace-nowrap shrink-0"
               >
                 <ClipboardList className="w-4 h-4 shrink-0" />
                 <span>Abrir Matriz de Madurez BIM</span>
                 <ArrowRight className="w-4 h-4 shrink-0" />
               </button>
 
-              <div className="flex items-center gap-2 text-xs text-slate-500">
+              {onOpenRoadmap && (
+                <button
+                  type="button"
+                  onClick={onOpenRoadmap}
+                  className="inline-flex items-center gap-2 border border-slate-900 bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white text-sm font-bold px-4 py-3 rounded-xl shadow-xs transition-all cursor-pointer whitespace-nowrap shrink-0"
+                >
+                  <ListOrdered className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Plan Inicial (10 Pasos)</span>
+                </button>
+              )}
+
+              {onOpenMetas && (
+                <button
+                  type="button"
+                  onClick={onOpenMetas}
+                  className="inline-flex items-center gap-2 border border-slate-300 bg-white hover:bg-slate-50 active:scale-[0.99] text-slate-800 text-sm font-bold px-4 py-3 rounded-xl shadow-2xs transition-all cursor-pointer whitespace-nowrap shrink-0"
+                >
+                  <Target className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Fijar Metas</span>
+                </button>
+              )}
+
+              <div className="flex items-center gap-2 text-xs text-slate-500 pl-1">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Guardado automático habilitado en tiempo real</span>
+                <span>Guardado en tiempo real</span>
               </div>
             </div>
           </div>
